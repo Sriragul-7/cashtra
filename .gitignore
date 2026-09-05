@@ -35,3 +35,13 @@ Thumbs.db
 
 # Tags
 tags
+
+# Local debug test scripts (not part of the test suite)
+cashtra/tests/inspect_records.py
+cashtra/tests/test_balance.py
+cashtra/tests/test_debug.py
+cashtra/tests/test_debug2.py
+cashtra/tests/test_exact.py
+cashtra/tests/test_fields.py
+cashtra/tests/test_sync.py
+cashtra/tests/test_verify_client_id.py
