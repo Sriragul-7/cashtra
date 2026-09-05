@@ -2,7 +2,7 @@
 
 - [x] Data contract complete for Account, Category, Transaction, Tag (see contract/SCHEMA.md and contract/API.md).
 - [x] Account DocType implemented and verified — owner-scoped permissions, balance defaulting, duplicate name check working.
-- [ ] Category DocType — not yet implemented.
+- [x] Category DocType implemented and verified — type-matching, cycle prevention, parent-scoped uniqueness working.
 - [ ] Tag DocType — not yet implemented.
 - [ ] Transaction DocType — not yet implemented.
 
