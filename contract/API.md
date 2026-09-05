@@ -154,12 +154,184 @@ Transactions are **never hard-deleted** via the API. Instead:
 
 ---
 
-## Custom Endpoints (dashboard aggregates, sync) — TBD next session
+## Custom Endpoints — Sync Protocol
 
-This section will cover:
+Two whitelisted RPC endpoints handle offline sync for all four DocTypes in
+a single call each. This avoids 4x round trips on what's typically a flaky
+mobile connection.
 
-- Dashboard summary endpoints (totals, monthly breakdowns, category charts).
-- Offline sync protocol endpoint (batch pull/push of changes since a timestamp).
-- Any other custom RPC endpoints needed.
+---
 
-Placeholder — to be filled in the next session.
+### POST /api/method/cashtra.api.sync.pull
+
+Fetch all records that changed since a given timestamp. Used for both full
+initial sync (no `since`) and incremental sync (pass the `server_time` from
+the previous pull).
+
+**Request body:**
+
+```json
+{ "since": "<ISO timestamp>" }
+```
+
+Omit `since` or pass `null` for a full initial sync. The server returns
+every record the user owns, regardless of `modified`.
+
+**Response:**
+
+```json
+{
+  "server_time": "<ISO timestamp>",
+  "accounts": [...],
+  "categories": [...],
+  "tags": [...],
+  "transactions": [...]
+}
+```
+
+Each array contains every record matching the query, with **all fields**
+including `client_id` and `modified`. The client should store
+`server_time` and use it as the `since` value for its next incremental
+pull.
+
+**Why `server_time` is captured at the START of the query (not the end):**
+If we captured it at the end, a record modified *during* the query window
+would have a `modified` timestamp between our start and end snapshots.
+On the next incremental pull (using the end timestamp as `since`), that
+record's `modified` would be *before* the new `since` — so it would be
+silently missed. Capturing `server_time` before any queries run guarantees
+every record modified up to that instant is included in the current pull,
+and the next pull starts from that exact cutoff.
+
+**Filtering rules:**
+- Account, Category, Tag: `modified > since` AND `owner = current_user`.
+- Transaction: `modified > since` AND `owner = current_user`.
+  **Soft-deleted records (`is_deleted=1`) ARE included.** The client needs
+  them to know a record was deleted locally (to hide/remove it from its
+  local DB). This is the one place where the sync payload deliberately
+  differs from normal list views, which always exclude `is_deleted=1`.
+
+---
+
+### POST /api/method/cashtra.api.sync.push
+
+Batched creates and updates across all four DocTypes. Each record includes
+its `client_id` (required for records created offline that don't have a
+server-assigned `name` yet) and all field values.
+
+**Request body:**
+
+```json
+{
+  "accounts": [{...}, ...],
+  "categories": [...],
+  "tags": [...],
+  "transactions": [...]
+}
+```
+
+Each array may be empty or omitted entirely. For each record in the push:
+
+1. **If `client_id` already exists on the server AND the incoming
+   `modified` is NOT newer than the server's stored `modified` for that
+   record:** skip it, do not overwrite. Add it to the response's
+   `rejected` list with `reason: "stale"`. This is the last-write-wins
+   conflict case — the server's version wins.
+
+2. **If `client_id` already exists AND incoming `modified` IS newer:**
+   apply the update normally through the DocType's controller (which runs
+   `validate()` — all business rules are enforced).
+
+3. **If `client_id` does not exist on the server:** create a new record
+   through the DocType's controller. The server assigns the `name`.
+
+**Response:**
+
+```json
+{
+  "accepted": {
+    "accounts": [
+      {"client_id": "...", "name": "<server-assigned name>"},
+      ...
+    ],
+    "categories": [...],
+    "tags": [...],
+    "transactions": [...]
+  },
+  "rejected": {
+    "accounts": [
+      {"client_id": "...", "reason": "stale", "server_modified": "<timestamp>"}
+    ],
+    "categories": [...],
+    "tags": [...],
+    "transactions": [...]
+  }
+}
+```
+
+The `accepted` mapping is how the client learns the real server name for
+records it created offline with only a `client_id`. The client should update
+its local record's primary key from the temporary `client_id` to the
+server-assigned `name`.
+
+The `rejected` list lets the client optionally surface "an edit didn't apply"
+rather than silently losing it. Each rejected entry includes the
+`server_modified` timestamp so the client can pull the server's version.
+
+**Conflict resolution policy:** Last-write-wins, determined by `modified`
+timestamps. No merge. If the client and server both modified the same record
+while offline, the version with the newer `modified` wins. The losing side
+receives a `rejected` entry so it can decide how to handle the loss (e.g.
+show a conflict badge, or silently accept the server's version).
+
+### Cross-record references in the same push batch
+
+When a user creates a new Account and immediately records a Transaction
+against it while still offline, both records are in the same push batch.
+The Transaction's `account` field can't be a server-assigned name yet — it
+doesn't exist on the server. The client must reference it by `client_id`.
+
+**Reference format — two cases:**
+
+| Scenario | JSON shape | Example |
+|----------|-----------|---------|
+| Referencing an **already-synced** record (has a real server name) | Plain string (the server `name`) | `"account": "HDFC Savings"` |
+| Referencing a **same-batch** record (not yet on the server) | Object with `client_id` key | `"account": {"client_id": "acc-1"}` |
+
+This applies to the following Link fields:
+
+- **Transaction** → `account`, `category`, `transfer_to_account`
+- **Transaction** → `tags[].tag` (TransactionTag child table rows)
+- **Category** → `parent_category`
+
+The server resolves same-batch references progressively as it processes
+the batch (see dependency order below). If a referenced `client_id` is
+not found in the current batch OR as an existing record's `client_id` in
+the database, that specific record is rejected with:
+
+```json
+{
+  "client_id": "txn-1",
+  "reason": "unresolved reference",
+  "detail": "client_id 'acc-1' not found in batch or database"
+}
+```
+
+The rest of the batch continues processing — a single bad reference does
+not abort the entire push.
+
+### Batch processing order
+
+Records are processed in dependency order within a single push call:
+
+1. **Accounts and Tags** (no inter-dependencies) — processed first. As each
+   record is created, its `client_id → server_name` mapping is added to a
+   resolution map.
+2. **Categories** (may reference `parent_category` which is another Category)
+   — processed second. Same-batch `parent_category` references are resolved
+   from the map built in step 1.
+3. **Transactions** (may reference `account`, `category`,
+   `transfer_to_account`, and `tags[].tag`) — processed last. All
+   same-batch references are resolved from the map built in steps 1–2.
+
+---
