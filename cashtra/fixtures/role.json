@@ -1,0 +1,11 @@
+[
+ {
+  "disabled": 0,
+  "doctype": "Role",
+  "is_custom": 1,
+  "module": "Cashtra",
+  "name": "Cashtra User",
+  "role_name": "Cashtra User",
+  "status": "1"
+ }
+]

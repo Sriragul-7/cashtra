@@ -5,6 +5,16 @@ app_description = "Open-source, self-hostable expense tracker backend"
 app_email = "sriragul@example.com"
 app_license = "mit"
 
+# Fixtures
+# ------------------
+
+fixtures = [
+    {
+        "dt": "Role",
+        "filters": [["name", "in", ["Cashtra User"]]]
+    }
+]
+
 # Apps
 # ------------------
 
