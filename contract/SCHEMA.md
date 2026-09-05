@@ -21,6 +21,7 @@ Represents a money container -- a bank account, cash wallet, credit card, etc.
 | 6 | `is_archived` | Check | No | Soft archive flag. Archived accounts are hidden from UI but not deleted. Default `0`. |
 | 7 | `icon` | Data | No | Icon identifier for the frontend (e.g. "icon-wallet"). |
 | 8 | `color` | Data | No | Hex or named colour for the frontend. |
+| 9 | `client_id` | Data | No | Client-generated UUID, set at the moment of local/offline creation. Used by the sync protocol to detect duplicate pushes (idempotency) and to let the client map its local record to the server-assigned name after sync. Optional — records created directly on the server (e.g. via desk UI) will not have one. |
 
 ### Notes
 
@@ -32,12 +33,16 @@ Represents a money container -- a bank account, cash wallet, credit card, etc.
 
 - `account_type` -- filtered in list views.
 - `is_archived` -- filtered in list views.
+- `client_id` -- used by sync protocol for idempotency lookups.
 
 ### Business Rules
 
 1. `account_name` must be unique per owner (add a unique constraint on
    `owner + account_name`).
-2. `current_balance` is a **virtual/calculated field**. On every Transaction
+2. `client_id` must be unique per owner (validated in Python, not DB constraint,
+   since the column is nullable and Frappe's unique constraint doesn't handle
+   NULLs reliably across databases).
+3. `current_balance` is a **virtual/calculated field**. On every Transaction
    save or delete:
    ```
    current_balance = opening_balance
@@ -76,6 +81,7 @@ level of nesting via `parent_category`.
 | 5 | `color` | Data | No | Hex or named colour for the frontend. |
 | 6 | `is_archived` | Check | No | Soft archive flag. Default `0`. |
 | 7 | `sort_order` | Int | No | Manual sort position for drag-to-reorder in category lists. Lower values appear first. Default `0`. |
+| 8 | `client_id` | Data | No | Client-generated UUID, set at the moment of local/offline creation. Used by the sync protocol to detect duplicate pushes (idempotency) and to let the client map its local record to the server-assigned name after sync. Optional — records created directly on the server (e.g. via desk UI) will not have one. |
 
 ### Indexes
 
@@ -83,6 +89,7 @@ level of nesting via `parent_category`.
 - `parent_category` -- used for tree queries.
 - `is_archived` -- filtered in list views.
 - `sort_order` -- used for ordering queries in list views.
+- `client_id` -- used by sync protocol for idempotency lookups.
 
 ### Business Rules
 
@@ -90,7 +97,9 @@ level of nesting via `parent_category`.
    owner (unique constraint on `owner + category_type + parent_category +
    category_name`). This allows e.g. "Other" to exist as a subcategory under
    both "Food" and "Travel" without colliding.
-2. `parent_category` must be of the same `category_type` (an Income category
+2. `client_id` must be unique per owner (validated in Python, not DB constraint,
+   since the column is nullable).
+3. `parent_category` must be of the same `category_type` (an Income category
    cannot be a child of an Expense category).
 3. `parent_category` must not reference itself (directly or via a cycle).
    Validate on save.
@@ -118,6 +127,7 @@ between accounts.
 | 9 | `tags` | Table -> TransactionTag | No | -- | Child table linking to Tag DocType (see TransactionTag below). Enables autocomplete and reuse of tags across transactions. |
 | 10 | `is_deleted` | Check | No | Yes | Soft-delete flag. Default `0`. See Business Rules for why this exists. |
 | 11 | `modified` | -- | -- | Yes | Standard Frappe field. Used by the offline sync protocol as the "changed since" timestamp. |
+| 12 | `client_id` | Data | No | Yes | Client-generated UUID, set at the moment of local/offline creation. Used by the sync protocol to detect duplicate pushes (idempotency) and to let the client map its local record to the server-assigned name after sync. Optional — records created directly on the server (e.g. via desk UI) will not have one. |
 
 ### TransactionTag (child table row)
 
@@ -143,6 +153,7 @@ between accounts.
 - `account` -- filtered when showing account-specific transaction lists.
 - `is_deleted` -- filtered on every list query (default `is_deleted = 0`).
 - `modified` -- used by sync protocol range queries.
+- `client_id` -- used by sync protocol for idempotency lookups (check if a record with this client_id already exists).
 
 ### Business Rules
 
@@ -161,6 +172,8 @@ between accounts.
    the `current_balance` of all affected Accounts (the `account` and, for
    Transfers, the `transfer_to_account`) must be recalculated per the Account
    business rules. Only non-deleted transactions (is_deleted=0) count.
+6. **client_id uniqueness:** If `client_id` is set, it must be unique per owner
+   (validated in Python, not DB constraint, since the column is nullable).
 
 ---
 
@@ -178,17 +191,21 @@ and support emoji + color for visual identification in the UI.
 | 3 | `color` | Data | No | Hex color for the tag's badge background. |
 | 4 | `is_archived` | Check | No | Soft archive flag. Default `0`. |
 | 5 | `sort_order` | Int | No | Manual sort position for drag-to-reorder in tag lists. Lower values appear first. Default `0`. |
+| 6 | `client_id` | Data | No | Client-generated UUID, set at the moment of local/offline creation. Used by the sync protocol to detect duplicate pushes (idempotency) and to let the client map its local record to the server-assigned name after sync. Optional — records created directly on the server (e.g. via desk UI) will not have one. |
 
 ### Indexes
 
 - `is_archived` -- filtered in list views and dropdowns.
 - `sort_order` -- used for ordering queries in list views.
+- `client_id` -- used by sync protocol for idempotency lookups.
 
 ### Business Rules
 
 1. `tag_name` must be unique per owner (unique constraint on `owner +
    tag_name`). The same tag name cannot exist twice for the same user, but
    different users can have tags with the same name.
-2. Archiving a tag does not affect existing transactions that reference it.
+2. `client_id` must be unique per owner (validated in Python, not DB constraint,
+   since the column is nullable).
+3. Archiving a tag does not affect existing transactions that reference it.
    The tag simply stops appearing in autocomplete and dropdowns until
    unarchived.

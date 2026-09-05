@@ -9,6 +9,7 @@ from frappe.model.document import Document
 class Account(Document):
     def validate(self):
         self.validate_account_name_uniqueness()
+        self.validate_client_id_unique()
         self.set_current_balance_default()
 
     def validate_account_name_uniqueness(self):
@@ -25,6 +26,26 @@ class Account(Document):
             frappe.throw(
                 _('Account "{0}" already exists for this user.').format(
                     self.account_name
+                ),
+                frappe.ValidationError,
+            )
+
+    def validate_client_id_unique(self):
+        """If client_id is set, it must be unique per owner."""
+        if not self.client_id:
+            return
+        existing = frappe.db.exists(
+            "Account",
+            {
+                "client_id": self.client_id,
+                "owner": self.owner,
+                "name": ["!=", self.name],
+            },
+        )
+        if existing:
+            frappe.throw(
+                _('Client ID "{0}" already exists for this user.').format(
+                    self.client_id
                 ),
                 frappe.ValidationError,
             )

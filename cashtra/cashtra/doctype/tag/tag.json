@@ -4,16 +4,18 @@
  "creation": "2026-09-05 12:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
-  "tag_name",
-  "emoji",
-  "column_break_1",
-  "color",
-  "section_break_status",
-  "is_archived",
-  "column_break_2",
-  "sort_order"
- ],
+  "field_order": [
+   "tag_name",
+   "emoji",
+   "column_break_1",
+   "color",
+   "section_break_sync",
+   "client_id",
+   "section_break_status",
+   "is_archived",
+   "column_break_2",
+   "sort_order"
+  ],
  "fields": [
   {
    "fieldname": "tag_name",
@@ -32,11 +34,23 @@
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
   },
-  {
-   "fieldname": "color",
-   "fieldtype": "Data",
-   "label": "Color"
-  },
+   {
+    "fieldname": "color",
+    "fieldtype": "Data",
+    "label": "Color"
+   },
+   {
+    "fieldname": "section_break_sync",
+    "fieldtype": "Section Break",
+    "label": "Sync"
+   },
+   {
+    "fieldname": "client_id",
+    "fieldtype": "Data",
+    "label": "Client ID",
+    "unique": 0,
+    "index": 1
+   },
   {
    "fieldname": "section_break_status",
    "fieldtype": "Section Break",

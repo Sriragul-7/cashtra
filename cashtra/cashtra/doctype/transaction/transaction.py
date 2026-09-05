@@ -11,6 +11,7 @@ class Transaction(Document):
         self.validate_amount_positive()
         self.validate_transfer_rules()
         self.validate_income_expense_rules()
+        self.validate_client_id_unique()
 
     def validate_amount_positive(self):
         """Amount must be positive. Reject negative or zero values."""
@@ -58,6 +59,26 @@ class Transaction(Document):
             frappe.throw(
                 _("Transfer To Account must be empty for {0} transactions.").format(
                     self.transaction_type
+                ),
+                frappe.ValidationError,
+            )
+
+    def validate_client_id_unique(self):
+        """If client_id is set, it must be unique per owner."""
+        if not self.client_id:
+            return
+        existing = frappe.db.exists(
+            "Transaction",
+            {
+                "client_id": self.client_id,
+                "owner": self.owner,
+                "name": ["!=", self.name],
+            },
+        )
+        if existing:
+            frappe.throw(
+                _('Client ID "{0}" already exists for this user.').format(
+                    self.client_id
                 ),
                 frappe.ValidationError,
             )

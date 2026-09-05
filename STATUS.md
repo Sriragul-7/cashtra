@@ -7,7 +7,7 @@
 - [x] Transaction DocType fully implemented and verified — conditional validation for Income/Expense/Transfer types, soft-delete support, autoname via Random.
 - [x] Balance recalculation implemented and verified — `current_balance` recalculated on Transaction create/edit/soft-delete/restore via `on_update` hook. 9-step verification test passing with all affected accounts tracked.
 
-CRUD is complete for v1's core data model. Next phase: custom endpoints (dashboard aggregates, sync protocol).
+CRUD is complete for v1's core data model. `client_id` field is in place on all four DocTypes for offline sync idempotency. Next phase: sync protocol endpoints (push/pull, conflict resolution, idempotency handling).
 
 ## Mobile
 

@@ -4,19 +4,21 @@
  "creation": "2026-09-05 10:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
-  "account_name",
-  "account_type",
-  "column_break_1",
-  "currency",
-  "icon",
-  "color",
-  "section_break_balances",
-  "opening_balance",
-  "current_balance",
-  "section_break_status",
-  "is_archived"
- ],
+  "field_order": [
+   "account_name",
+   "account_type",
+   "column_break_1",
+   "currency",
+   "icon",
+   "color",
+   "section_break_sync",
+   "client_id",
+   "section_break_balances",
+   "opening_balance",
+   "current_balance",
+   "section_break_status",
+   "is_archived"
+  ],
  "fields": [
   {
    "fieldname": "account_name",
@@ -52,11 +54,23 @@
    "fieldtype": "Data",
    "label": "Icon"
   },
-  {
-   "fieldname": "color",
-   "fieldtype": "Data",
-   "label": "Color"
-  },
+   {
+    "fieldname": "color",
+    "fieldtype": "Data",
+    "label": "Color"
+   },
+   {
+    "fieldname": "section_break_sync",
+    "fieldtype": "Section Break",
+    "label": "Sync"
+   },
+   {
+    "fieldname": "client_id",
+    "fieldtype": "Data",
+    "label": "Client ID",
+    "unique": 0,
+    "index": 1
+   },
   {
    "fieldname": "section_break_balances",
    "fieldtype": "Section Break",
