@@ -61,3 +61,38 @@ class Transaction(Document):
                 ),
                 frappe.ValidationError,
             )
+
+    def on_update(self):
+        """After save, recalculate balance on all affected accounts.
+
+        Handles:
+        - New transaction: recalc the current account(s).
+        - Edited transaction: recalc both old and new account(s) if they changed.
+        - Soft-delete/restore (is_deleted toggle): recalc the current account(s).
+        """
+        affected_accounts = self._get_affected_accounts()
+
+        # Also recalc accounts from the previous version if they differ
+        prev = self.get_doc_before_save()
+        if prev:
+            old_accounts = self._get_affected_accounts_for_doc(prev)
+            affected_accounts = affected_accounts | old_accounts
+
+        for account_name in affected_accounts:
+            frappe.get_attr("cashtra.cashtra.doctype.account.account.recalculate_account_balance")(
+                account_name
+            )
+
+    def _get_affected_accounts(self):
+        """Return set of account names affected by this transaction."""
+        accounts = {self.account}
+        if self.transaction_type == "Transfer" and self.transfer_to_account:
+            accounts.add(self.transfer_to_account)
+        return accounts
+
+    def _get_affected_accounts_for_doc(self, doc):
+        """Return set of account names that were affected by a previous version of this transaction."""
+        accounts = {doc.account}
+        if doc.transaction_type == "Transfer" and doc.transfer_to_account:
+            accounts.add(doc.transfer_to_account)
+        return accounts

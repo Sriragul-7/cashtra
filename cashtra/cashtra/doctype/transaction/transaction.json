@@ -124,7 +124,7 @@
  "modified_by": "Administrator",
  "module": "Cashtra",
  "name": "Transaction",
- "naming_rule": "By fieldname",
+ "naming_rule": "Random",
  "owner": "Administrator",
  "permissions": [
   {

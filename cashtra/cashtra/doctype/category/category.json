@@ -88,6 +88,7 @@
  "modified_by": "Administrator",
  "module": "Cashtra",
  "name": "Category",
+ "autoname": "field:category_name",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
