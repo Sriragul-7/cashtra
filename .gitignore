@@ -1,7 +1,37 @@
-.DS_Store
+# Python
 *.pyc
-*.egg-info
+*.pyo
+__pycache__/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Node
+node_modules/
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
 *.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tags
 tags
-node_modules
-__pycache__
